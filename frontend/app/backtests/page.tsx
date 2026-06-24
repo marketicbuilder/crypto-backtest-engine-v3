@@ -16,7 +16,7 @@ function Page() {
 
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [form, setForm] = useState({
-    symbol: 'BTCUSDT', interval: '1d', source: 'binance',
+    symbol: 'BTCUSDT', interval: '1D', source: 'bitget',
     start: '', end: '', starting_balance: 10000,
     fee_pct: 0.001, slippage_pct: 0.0005,
     risk_per_trade: 0.02, stop_loss_pct: 0.08, take_profit_pct: 0.25,
@@ -104,14 +104,13 @@ function Page() {
           <div><Label>Interval</Label>
             <select className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm"
               value={form.interval} onChange={e => setForm({ ...form, interval: e.target.value })}>
-              {['1h', '4h', '1d', '1w'].map(i => <option key={i}>{i}</option>)}
+              {['1H', '4H', '1D', '1W'].map(i => <option key={i}>{i}</option>)}
             </select>
           </div>
           <div><Label>Source</Label>
             <select className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm"
               value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}>
-              <option value="binance">binance</option>
-              <option value="coingecko">coingecko</option>
+              <option value="bitget">bitget</option>
             </select>
           </div>
           <div><Label>Start (YYYY-MM-DD)</Label><Input placeholder="2021-01-01" value={form.start} onChange={e => setForm({ ...form, start: e.target.value })} /></div>
