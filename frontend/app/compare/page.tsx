@@ -29,7 +29,7 @@ export default function ComparePage() {
     setLoading(true); setErr(null);
     try {
       const res = await api.compare({
-        data: { symbol, interval, source: 'binance', with_fear_greed: true },
+        data: { symbol, interval, source: 'bitget', with_fear_greed: true },
         strategies: [...selected].map(n => ({ name: n, params: {} })),
       });
       setRows(res as Row[]);
