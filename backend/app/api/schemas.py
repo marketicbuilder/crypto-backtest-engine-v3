@@ -73,4 +73,4 @@ class OptimiseRequest(BaseModel):
     starting_balance: float = 10_000
     fee_pct: float = 0.001
     slippage_pct: float = 0.0005
-    objective: str = "sharpe"   # sharpe | calmar | return
+    objective: str = "sharpe"
