@@ -9,7 +9,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .providers import alternative_me, binance, coingecko, cryptopanic
+from .providers import alternative_me, bitget, coingecko, cryptopanic
 
 
 def load_dataset(
@@ -18,13 +18,14 @@ def load_dataset(
     start: Optional[str] = None,
     end: Optional[str] = None,
     *,
-    source: str = "binance",
+    source: str = "bitget",
     with_fear_greed: bool = True,
     with_news: bool = False,
     news_currency: str = "BTC",
 ) -> pd.DataFrame:
-    if source == "binance":
-        px = binance.fetch_ohlcv(symbol, interval, start, end)
+    if source == "bitget":
+        granularity = interval.upper().replace("1D", "1D").replace("1H", "1H")
+        px = bitget.fetch_ohlcv(symbol, granularity)
     elif source == "coingecko":
         days = "max" if start is None else (pd.Timestamp.utcnow() - pd.Timestamp(start, tz="UTC")).days
         px = coingecko.fetch_market_chart(symbol.lower(), days=days)
