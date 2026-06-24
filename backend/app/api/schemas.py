@@ -11,7 +11,7 @@ class DataRequest(BaseModel):
     interval: str = "1d"
     start: Optional[str] = None
     end: Optional[str] = None
-    source: str = "binance"
+    source: str = "bitget"
     with_fear_greed: bool = True
     with_news: bool = False
 
