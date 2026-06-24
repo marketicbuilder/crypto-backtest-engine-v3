@@ -1,9 +1,9 @@
 """Multi-factor AI scoring strategy.
 
-Combines RSI, MACD, volume trend, momentum, Fear & Greed and news
-sentiment into a 0-100 score that maps to BUY / HOLD / SELL.
-Fear & Greed and news sentiment are optional columns; if absent we
-neutralise the contribution so the strategy still works on raw OHLCV.
+Combines RSI, MACD, volume trend, momentum, Fear & Greed,
+Bitget long/short ratio, and Bitget funding rate into a
+0-100 score that maps to BUY / HOLD / SELL.
+All Bitget sentiment signals use the public futures API — no auth needed.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from typing import Dict
 import pandas as pd
 
 from ..indicators import ema, macd, rsi, volume_rising
+from ..data.providers import bitget_sentiment
 from .base import Signal, register
 
 
@@ -34,7 +35,6 @@ class AIScoringStrategy:
         }
     )
 
-    # ---- preparation -------------------------------------------------
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         p = self.params
         out = df.copy()
@@ -47,13 +47,18 @@ class AIScoringStrategy:
         out["vol_rising"] = volume_rising(out["volume"], int(p["vol_length"]))
         out["mom"] = out["close"].pct_change(10) * 100
         # optional inputs default to neutral
-        if "fear_greed" not in out:
+        if "fear_greed" not in out.columns:
             out["fear_greed"] = 50.0
-        if "news_sent" not in out:
-            out["news_sent"] = 0.0
+        # fetch live Bitget sentiment signals once per prepare call
+        try:
+            symbol = "BTCUSDT"
+            out["ls_ratio"] = bitget_sentiment.fetch_long_short_ratio(symbol)
+            out["funding_rate"] = bitget_sentiment.fetch_funding_rate(symbol)
+        except Exception:
+            out["ls_ratio"] = 1.0
+            out["funding_rate"] = 0.0
         return out
 
-    # ---- decision ----------------------------------------------------
     def decide(self, row: pd.Series, position: float) -> Signal:  # noqa: C901
         p = self.params
         breakdown: Dict[str, float] = {}
@@ -116,18 +121,32 @@ class AIScoringStrategy:
         else:
             breakdown["fg_neutral"] = 5
 
-        # ---- News sentiment -----------------------------------------
-        ns = float(row.get("news_sent", 0))
-        if ns > 0.3:
-            breakdown["news_positive"] = 15
-            reasons.append("News sentiment positive")
-        elif ns < -0.3:
-            breakdown["news_negative"] = -15
-            reasons.append("News sentiment negative")
+        # ---- Bitget Long/Short Ratio --------------------------------
+        ls = float(row.get("ls_ratio", 1.0))
+        if ls < 0.45:
+            breakdown["ls_shorts_crowded"] = 10
+            reasons.append(f"Bitget L/S {ls:.2f} — shorts crowded (short squeeze fuel)")
+        elif ls > 0.65:
+            breakdown["ls_longs_crowded"] = -10
+            reasons.append(f"Bitget L/S {ls:.2f} — longs crowded (squeeze risk)")
+        else:
+            breakdown["ls_balanced"] = 3
+            reasons.append(f"Bitget L/S {ls:.2f} balanced")
+
+        # ---- Bitget Funding Rate ------------------------------------
+        fr = float(row.get("funding_rate", 0.0))
+        if fr > 0.0005:
+            breakdown["funding_high"] = -10
+            reasons.append(f"Funding rate {fr:.4f} — overleveraged longs (caution)")
+        elif fr < -0.0001:
+            breakdown["funding_negative"] = 10
+            reasons.append(f"Funding rate {fr:.4f} — shorts paying longs (bullish)")
+        else:
+            breakdown["funding_neutral"] = 3
+            reasons.append(f"Funding rate {fr:.4f} neutral")
 
         # ---- aggregate score ----------------------------------------
         raw = sum(breakdown.values())
-        # map raw [-70..70] to 0..100 centred at 50
         score = max(0.0, min(100.0, 50.0 + raw))
 
         if score >= p["buy_threshold"]:
@@ -137,7 +156,6 @@ class AIScoringStrategy:
         else:
             action = "hold"
 
-        # don't open a new long if we already are long, don't sell if flat
         if action == "buy" and position > 0:
             action = "hold"
         if action == "sell" and position <= 0:
