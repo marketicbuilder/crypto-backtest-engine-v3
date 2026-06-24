@@ -1,212 +1,121 @@
-# AI Crypto Backtest Engine
-
-> **Bitget Hackathon Submission** — Multi-factor AI scoring engine for crypto trading strategy research, backtesting, and live execution via Bitget.
+Here's the full answer, ready to paste into the hackathon form.
 
 ---
 
-## Why I Built It
+**Project Name:** BitEdge
 
-Most retail crypto traders blow up accounts not because their ideas are wrong — but because they never test them. Paid backtesting tools are expensive, and free ones lack realistic simulation (fees, slippage, leverage, trailing stops). I built this engine to give anyone access to institutional-grade backtesting using **entirely free-tier APIs** — no Bloomberg terminal required.
+**Live Demo:** https://bitedge.vercel.app
 
-The core insight: a strategy that cannot survive a backtest will not survive real markets. This engine lets you kill bad ideas cheaply before putting real money on them.
+**GitHub:** https://github.com/marketicbuilder/crypto-backtest-engine-v3
+
+**API Docs:** https://crypto-backtest-engine-v3-production.up.railway.app/docs
 
 ---
 
-## How the Strategy Works
+**Why I Built It and the Core Logic**
 
-### The AI Scoring Engine
+Most retail crypto traders blow up accounts not because their ideas are wrong — but because they never test them first. Paid backtesting tools are expensive, and free ones cut corners on realism: they ignore fees, slippage, leverage mechanics, and trailing stops. The result is a false sense of confidence before deploying real capital.
 
-The flagship strategy is a **multi-factor scoring system** that combines 7 signals into a single 0–100 score every bar. Above 60 = BUY, below 40 = SELL, between = HOLD.
+BitEdge was built to close that gap. The core insight is simple: a strategy that cannot survive a backtest will not survive real markets. BitEdge gives any trader access to institutional-grade strategy evaluation using entirely free-tier APIs, with Bitget as the primary data source.
+
+The engine's flagship strategy is a multi-factor AI scoring system that combines 8 signals into a single 0-100 score on every bar. Above 60 triggers a BUY. Below 40 triggers a SELL. Between 40 and 60 is HOLD. Every signal contributes a weighted delta to a neutral baseline of 50, and the final score is clamped to the 0-100 range.
 
 | Signal | Weight | Logic |
 |---|---|---|
-| RSI (14) | ±20 | < 35 = oversold bullish; > 70 = overbought bearish |
-| MACD | ±15 | MACD line above/below signal line |
-| EMA Trend (20/50) | ±10 | Fast EMA vs slow EMA — trend direction |
+| RSI (14) | +/-20 | Below 35 = oversold bullish; above 70 = overbought bearish |
+| MACD | +/-15 | MACD line above or below signal line |
+| EMA Trend (20/50) | +/-10 | Fast EMA vs slow EMA — trend direction |
 | Volume | +10 | Volume rising above its 20-bar SMA = conviction |
-| 10-bar Momentum | ±10 | Price change > ±5% signals strength or weakness |
-| Fear & Greed Index | ±10 | Contrarian — extreme fear = buy, extreme greed = caution |
-| News Sentiment | ±15 | CryptoPanic score > 0.3 or < -0.3 |
+| 10-bar Momentum | +/-10 | Price change above +/-5% signals strength or weakness |
+| Fear and Greed Index | +/-10 | Contrarian — extreme fear signals buy, extreme greed signals caution |
+| Bitget L/S Ratio | +/-10 | Crowd positioning from Bitget Futures — contrarian signal |
+| Bitget Funding Rate | +/-10 | Elevated funding = overheated longs; negative funding = oversold |
 
-**Score formula:** `score = clamp(50 + sum(weighted_signals), 0, 100)`
+The Bitget long/short ratio and funding rate are live signals pulled directly from the Bitget Futures v2 API with no authentication required. They add a real-time market microstructure layer that pure price indicators cannot capture.
 
-Each signal degrades gracefully — if Fear & Greed or news data is unavailable, those contributions neutralise to 0 and the engine runs on pure technicals.
-
-### Why This Works
-
-- **Mean-reversion + trend confirmation** — RSI catches oversold dips; EMA/MACD confirm the trend hasn't reversed. Together they avoid buying falling knives.
-- **Sentiment as a contrarian edge** — When Fear & Greed hits extreme fear (< 25), markets are historically oversold. The engine buys the opposite of the crowd.
-- **Volume as a conviction filter** — Price moves without volume are noise. Rising volume increases signal confidence.
-- **News sentiment** provides a forward-looking signal that pure price indicators miss entirely.
-
-### Additional Strategies
-
-- **EMA Cross** — Golden/death cross on configurable fast/slow EMAs
-- **RSI Mean Reversion** — Pure oversold/overbought bounce strategy
-
-Any strategy file dropped into `backend/app/strategies/` auto-registers via the `@register` decorator — no other code changes needed.
+Each signal degrades gracefully. If sentiment or funding data is unavailable for a given symbol or date range, that signal contribution defaults to zero and the engine continues running on pure technicals without crashing.
 
 ---
 
-## Risk Management
+**Key Development Challenges and How They Were Solved**
 
-Every strategy supports: stop-loss (default 5%), take-profit (default 12%), trailing stop, leverage up to 10x, risk-per-trade position sizing, max open positions cap, and realistic fees + slippage deducted on every trade.
+**1. Free API rate limits and data gaps**
 
----
+Bitget's public OHLCV endpoint returns a maximum of 1,000 bars per request. To support multi-year backtests, BitEdge implements an auto-paginating client that walks backward through time in 1,000-bar windows with a 50ms sleep between requests to respect rate limits. All fetched data is cached to disk as gzip-compressed Parquet files. Five years of BTC daily data downloads once and serves every subsequent backtest in milliseconds.
 
-## Architecture
+**2. Graceful signal degradation**
 
-```
-┌────────────────────────────────────┐
-│         Next.js Frontend           │
-│  Backtest · Compare · Optimise     │
-└────────────┬───────────────────────┘
-             │ REST
-┌────────────▼───────────────────────┐
-│         FastAPI Backend            │
-│  Data Loader → Engine → Broker     │
-│  Strategy Registry (plug-in)       │
-└────────────────────────────────────┘
-```
+Fear and Greed data and news sentiment are not available for every symbol or historical range. Rather than failing or requiring fallback logic in every strategy, the scoring engine treats each signal as an independent optional contributor. Absent signals return 0 delta. The engine's output is always valid regardless of which signals are live.
 
-Data flow: frontend sends config → backend fetches OHLCV from Binance (auto-cached as Parquet) → optionally enriches with Fear & Greed + news sentiment → strategy scores every bar → engine simulates trades → returns 17 metrics, equity curve, drawdown, trade log, and AI insights.
+**3. Plug-in strategy architecture**
 
----
+A decorator-based registry means any strategy file dropped into `backend/app/strategies/` is auto-registered globally without touching any other code. This makes the system extensible by design — new strategies appear in the UI the moment the file exists.
 
-## Key Development Challenges
+**4. Realistic simulation**
 
-**1. Free APIs with 1,000-bar limits** — Built an auto-paginating Binance client with 50ms rate-limit sleep and on-disk gzip-Parquet cache. 5 years of BTC daily data downloads once, serves forever.
+Most free backtesting tools use close-to-close pricing. BitEdge uses next-bar open execution with configurable fees, slippage, leverage up to 10x, stop-loss, take-profit, trailing stop, risk-per-trade position sizing, and a max open positions cap. The simulation reflects what would actually happen, not what a clean chart suggests.
 
-**2. Graceful signal degradation** — Fear & Greed and news aren't available for all symbols or date ranges. All optional signals default to neutral (0 contribution) when absent so the engine never crashes.
+**5. Parameter optimisation**
 
-**3. Plug-in strategy system** — The `@register` decorator at the bottom of any strategy file auto-registers it globally. Drop a file, it appears in the UI instantly.
-
-**4. Grid-search optimisation** — Runs full parameter grids synchronously with results returned as a ranked table. Designed to move to a background task queue (Celery/RQ) as a next step.
+A grid-search optimiser runs full parameter combinations across any strategy and ranks results by Sharpe ratio, Calmar ratio, or total return. It runs synchronously for now with the architecture designed to move to a Celery or RQ background task queue as volume scales.
 
 ---
 
-## What's Complete
+**What Is Complete**
 
-- Multi-factor AI scoring engine (7 signals)
+- 8-signal AI scoring engine with Bitget L/S ratio and funding rate as live signals
 - EMA crossover and RSI mean-reversion strategies
-- Event-driven backtest engine with realistic costs
-- 17 performance metrics (Sharpe, Sortino, Calmar, profit factor, win rate, max drawdown, streaks)
-- Equity curve, drawdown, monthly returns, and trade distribution charts
+- Event-driven backtest engine with realistic costs (fees, slippage, leverage, stops)
+- 17 performance metrics: Sharpe, Sortino, Calmar, profit factor, win rate, max drawdown, streak analysis
+- Equity curve, drawdown chart, monthly returns heatmap, trade distribution
 - Side-by-side strategy comparison
-- Parameter grid-search optimisation (Sharpe / Calmar / Return objectives)
-- Rule-based AI insights
-- Bitget live trading adapter (Spot v2 REST API, HMAC-SHA256 signing)
+- Parameter grid-search optimisation
+- Rule-based AI insights summarising backtest results
+- Bitget Live Broker adapter — same strategy interface runs across backtest, paper, and live modes with zero code changes
 - Paper trading mode
 - Telegram and Discord trade alerts
-- CSV / JSON trade log export
+- CSV and JSON trade log export
 - On-disk Parquet cache
-- Docker + docker-compose
+- Docker and docker-compose
 - GitHub Actions CI (lint, tests, Docker build)
-- Vercel + Railway deployment configs
+- Vercel and Railway deployment
 
-## What's Next
+**What Is Still Missing / Next Steps**
 
-- Async optimisation with job queue
-- Supabase persistence for backtest history
-- Futures / perpetuals support with funding rates
-- Portfolio-level backtesting across multiple assets
-- ML-based signal weighting (replace fixed weights with a trained model)
-- Bitget WebSocket for real-time paper trading
-- On-chain signals via DefiLlama TVL and protocol flows
+- Async optimisation with a background job queue (Celery or RQ)
+- Supabase persistence for saving and comparing backtest history across sessions
+- Futures and perpetuals support with funding rate PnL accounting
+- Portfolio-level backtesting across multiple assets simultaneously
+- ML-based signal weighting — replacing fixed weights with a regime-detecting model that shifts allocation between momentum and sentiment signals depending on market conditions
+- Bitget WebSocket integration for real-time paper trading
+- On-chain signals via DefiLlama TVL and protocol flow data
 
 ---
 
-## Frameworks, Models & APIs
+**Frameworks, Models, and APIs**
 
-**Backend:** FastAPI, pandas, numpy, PyArrow, uvicorn
+Backend: FastAPI, pandas, numpy, PyArrow, uvicorn
 
-**Frontend:** Next.js 14 (App Router), Tailwind CSS, shadcn/ui, TradingView Lightweight Charts
+Frontend: Next.js 14 (App Router), Tailwind CSS, shadcn/ui, TradingView Lightweight Charts
 
-**APIs (all free tier):**
+APIs used:
 
 | API | Usage |
 |---|---|
-| Binance Public REST | OHLCV historical data — no key needed |
-| CoinGecko | Token metadata and prices |
-| Alternative.me | Fear & Greed Index |
+| Bitget Spot v2 REST | Primary OHLCV historical data source |
+| Bitget Futures v2 REST | Live long/short ratio and funding rate signals |
+| Alternative.me | Fear and Greed Index |
 | CryptoPanic | News sentiment scoring |
 | DefiLlama | TVL and on-chain protocol data |
-| GeckoTerminal | DEX pool data |
 
-**Bitget Integration:** Bitget Spot v2 REST API — live order placement, position queries, and balance checks via the `BitgetLiveBroker` adapter. HMAC-SHA256 signing implemented from scratch. The same strategy interface runs unchanged across backtest → paper → live modes with zero code changes.
-
-> Bitget tools used: **Bitget REST API (Spot v2)**
+Bitget tools used: Bitget REST API — Spot v2 and Futures v2
 
 ---
 
-## Experience with Bitget AI Tools
+**AI Trading Thoughts**
 
-The Spot v2 API was clean to integrate — the authentication scheme is well-documented and responses are consistent. The biggest improvement I'd suggest is a **paper trading sandbox endpoint** that mirrors the live API exactly. Right now paper mode requires a separate simulation layer (which I built), but a first-party sandbox would dramatically reduce the barrier to testing live strategies safely.
+The Bitget Spot v2 and Futures v2 APIs were straightforward to integrate. The authentication scheme is well-documented, response structures are consistent, and the public endpoints for market data require no credentials — which dramatically lowers the barrier for developers building research tools.
 
-On the future of Agentic Trading: the next evolution of this engine is replacing fixed scoring weights with a regime-detecting model — heavier momentum weighting in bull markets, heavier sentiment/fear weighting in bear markets. An agent that knows what kind of market it's in and adjusts accordingly is far more robust than any fixed strategy. That's where this is going.
+The single biggest improvement that would help builders like me is a first-party paper trading sandbox that mirrors the live API exactly, including order acknowledgement, fill simulation, and position tracking. Right now paper mode requires building a full simulation layer separately, which is significant engineering overhead. A sandbox environment with identical request and response schemas to production would reduce time-to-testing substantially.
 
----
-
-## Deployment
-
-- **Frontend:** Vercel — auto-deploys from `main`
-- **Backend:** Railway (Docker) — auto-deploys from `main`
-- **CI/CD:** GitHub Actions on every push
-
-**Backend env vars (Railway):**
-```
-CRYPTOPANIC_TOKEN=        # free signup at cryptopanic.com
-BITGET_API_KEY=           # live trading only
-BITGET_API_SECRET=        # live trading only
-BITGET_API_PASSPHRASE=    # live trading only
-TELEGRAM_BOT_TOKEN=       # optional
-DISCORD_WEBHOOK_URL=      # optional
-```
-
-**Frontend env var (Vercel):**
-```
-NEXT_PUBLIC_API_BASE=https://your-backend.up.railway.app
-```
-
----
-
-## Quick Start
-
-```bash
-git clone https://github.com/YOUR_USERNAME/crypto-backtest-engine.git
-cd crypto-backtest-engine/backend
-cp .env.example .env
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-
-# New terminal
-cd frontend
-npm install && npm run dev
-```
-
-Or: `docker-compose up --build`
-
----
-
-## Sample Backtest Output
-
-Full logs in `/output/demo/`:
-- `equity.csv` — portfolio value at every bar
-- `trades.csv` — entry/exit timestamps, prices, PnL, fees, score, reason
-- `signals.csv` — raw signal scores at every bar
-- `metrics.json` — all 17 performance metrics
-
----
-
-## Links
-
-- **GitHub:** https://github.com/YOUR_USERNAME/crypto-backtest-engine
-- **Live Demo:** https://your-frontend.vercel.app
-- **API Docs:** https://your-backend.up.railway.app/docs
-- **Demo Video:** *(YouTube / X link)*
-- **Project Post:** *(X post with #BitgetHackathon and @BitgetAI)*
-- **Bitget Campaign Repost:** *(X repost link)*
-
----
-
-*Built for the Bitget AI Hackathon. All data from free public APIs. Not financial advice.*
+On the broader question of agentic trading: the next meaningful leap is not better indicators — it is regime awareness. Fixed signal weights assume markets behave consistently across conditions, which they do not. A bull market rewards momentum signals. A bear market rewards sentiment and mean-reversion signals. A sideways market punishes both. The next version of BitEdge replaces fixed weights with a regime-detecting model that observes volatility, trend strength, and market structure and adjusts signal allocation dynamically. An agent that knows what kind of market it is operating in is categorically more robust than any static strategy, regardless of how many signals it combines. That is the direction this is heading, and it is where agentic trading infrastructure needs to go.
