@@ -28,12 +28,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <Link key={n.href} href={n.href} className="hover:text-white">{n.label}</Link>
                 ))}
               </nav>
-              <div className="ml-auto text-xs text-slate-500">free-tier APIs · Binance · CoinGecko</div>
+              <div className="ml-auto text-xs text-slate-500">Powered by Bitget API</div>
             </div>
           </header>
           <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">{children}</main>
           <footer className="border-t border-slate-800/80 text-xs text-slate-500 py-4 text-center">
-            Built with Next.js · FastAPI · Supabase · TradingView Lightweight Charts
+            Built with Next.js · FastAPI · Bitget API · TradingView Lightweight Charts
           </footer>
         </div>
       </body>
