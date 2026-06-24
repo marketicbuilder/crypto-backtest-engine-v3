@@ -33,7 +33,7 @@ app.include_router(strategies.router)
 app.include_router(data.router)
 app.include_router(backtests.router)
 app.include_router(insights.router)
-
+app.include_router(strategy_submission.router)
 
 @app.get("/health")
 def health() -> dict:
