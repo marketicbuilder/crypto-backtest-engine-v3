@@ -23,7 +23,7 @@ export default function OptimisePage() {
     setLoading(true); setErr(null);
     try {
       const r = await api.optimise({
-        data: { symbol, interval: '1d', source: 'binance', with_fear_greed: true },
+        data: { symbol, interval: '1d', source: 'bitget', with_fear_greed: true },
         strategy_name: strategy,
         param_grid: Object.fromEntries(Object.entries(grid).map(([k, v]) => [k, parseList(v)])),
         objective,
