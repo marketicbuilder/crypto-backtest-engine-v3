@@ -1,8 +1,4 @@
-"""Unified loader that joins price + Fear&Greed + news sentiment.
-
-Falls back gracefully when an optional source is unavailable so the
-engine still works with just OHLCV.
-"""
+"""Unified loader that joins price + Fear&Greed + news sentiment."""
 from __future__ import annotations
 
 from typing import Optional
@@ -24,7 +20,7 @@ def load_dataset(
     news_currency: str = "BTC",
 ) -> pd.DataFrame:
     if source == "bitget":
-        granularity = interval.upper().replace("1D", "1D").replace("1H", "1H")
+        granularity = interval.upper()
         px = bitget.fetch_ohlcv(symbol, granularity)
     elif source == "coingecko":
         days = "max" if start is None else (pd.Timestamp.utcnow() - pd.Timestamp(start, tz="UTC")).days
