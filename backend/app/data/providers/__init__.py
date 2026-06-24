@@ -1,7 +1,7 @@
-from . import (alternative_me, binance, bitget, coingecko,
+from . import (alternative_me, bitget, coingecko,
                cryptopanic, defillama, geckoterminal)
 
 __all__ = [
-    "alternative_me", "binance", "bitget", "coingecko",
+    "alternative_me", "bitget", "coingecko",
     "cryptopanic", "defillama", "geckoterminal",
 ]
