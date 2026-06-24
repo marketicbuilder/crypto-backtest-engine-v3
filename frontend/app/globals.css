@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(56,189,248,0.10), transparent 40%),
+    radial-gradient(circle at 88% 100%, rgba(168,85,247,0.10), transparent 50%),
+    rgb(2 6 23);
+  color: rgb(241 245 249);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(51 65 85); border-radius: 4px; }
