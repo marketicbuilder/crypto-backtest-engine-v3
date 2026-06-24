@@ -1,22 +1,29 @@
-"""Bitget public-market candles.
-
-Free, no auth.  ``granularity`` follows Bitget convention (e.g. ``1D``).
-"""
+"""Bitget public-market candles. Free, no auth."""
 from __future__ import annotations
-
-from typing import Optional
 
 import pandas as pd
 import requests
 
 from ...core import cache, settings
 
+_INTERVAL_MAP = {
+    "1H": "1hour",
+    "4H": "4hour",
+    "1D": "1day",
+    "1W": "1week",
+    "1h": "1hour",
+    "4h": "4hour",
+    "1d": "1day",
+    "1w": "1week",
+}
+
 
 def fetch_ohlcv(
     symbol: str = "BTCUSDT",
-    granularity: str = "1D",
+    granularity: str = "1day",
     limit: int = 1000,
 ) -> pd.DataFrame:
+    granularity = _INTERVAL_MAP.get(granularity, granularity)
     cache_key = {"symbol": symbol, "granularity": granularity, "limit": limit}
     cached = cache.get_df("bitget.candles", cache_key)
     if cached is not None:
