@@ -1,7 +1,10 @@
 # BitEdge — Bitget AI Builder Base Camp Hackathon S1
 
-**Live Demo:** https://bitedge.vercel.app
+**Live Demo:** https://bitedge.vercel.app 
+**Live Video Demo:** https://vt.tiktok.com/ZSCYbmAap/
+
 **GitHub:** https://github.com/marketicbuilder/crypto-backtest-engine-v3
+
 **API Docs:** https://crypto-backtest-engine-v3-production.up.railway.app/docs
 
 ---
